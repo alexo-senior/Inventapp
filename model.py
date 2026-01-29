@@ -10,3 +10,5 @@ class Medicamento(database.Base):
     lote = Column(String, unique=True, index=True)
     laboratorio = Column(String)
     vencimiento = Column(String) # la fecha se guarda como texto ISO (YYYY-MM-DD)
+    
+    

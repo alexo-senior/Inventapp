@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timedelta
+from sqlalchemy import asc
 
 
 
@@ -13,7 +14,7 @@ import database
 model.database.Base.metadata.create_all(bind=database.engine)
 
 
-app = FastAPI(title="InventApp Gestión Profesional de inventarios de Medicamentos")
+app = FastAPI(title="InventApp Gestión de inventario y vencimientos de Medicamentos")
 
 # 2. Función de dependencia para obtener la sesión de la DB
 
@@ -31,6 +32,7 @@ def home():
     return {"mensaje": "Bienvenido a InventApp"}
 
 # Listar todo
+
 @app.get("/medicamentos", response_model=List[schema.Medicamento])
 def obtener_todos(db: Session = Depends(get_db)):
     return db.query(model.Medicamento).all()
@@ -38,14 +40,21 @@ def obtener_todos(db: Session = Depends(get_db)):
 
 # Sistema de alertas para fechas de vencimiento
 
-@app.get("/medicamentos/alertas", response_model=List[schema.AlertaMedicamento])
+@app.get("/medicamentos/alertas", response_model=schema.ResumenAlertas)
 def obtener_alertas(db: Session = Depends(get_db)):
     hoy = datetime.now().date()
-    #limite_alerta = hoy + timedelta(days=30)
+    fecha_limite = hoy + timedelta(days=60)
     
-    # 1. se obtienen todos los registros de la DB
-    medicamentos = db.query(model.Medicamento).all()
-    lista_alertas = [] # lista que espera las alertas
+    # se obtienen todos los registros de la DB
+    # se hace el filtrado con las fechas menor o igual a la fecha limite
+    
+    medicamentos = db.query(model.Medicamento).filter(
+        model.Medicamento.vencimiento <= str(fecha_limite)
+    ).order_by(asc(model.Medicamento.vencimiento)).all()
+    
+    vencidos = 0
+    por_vencer = 0
+    lista_detalles = [] # lista que espera las alertas
 
     for m in medicamentos:
         # se convierte el texto "YYYY-MM-DD" a un objeto de fecha real
@@ -53,31 +62,39 @@ def obtener_alertas(db: Session = Depends(get_db)):
         dias_restantes = (fecha_venc - hoy).days
         
         # se hace el filtro si vence en menos de 60 días o ya venció
+        # Clasificamos la gravedad
         
-        if dias_restantes <= 60:
+        if dias_restantes < 0:
+            status = "VENCIDO REPORTAR Y DESTRUIR"
+            vencidos += 1
             
-            # Clasificamos la gravedad
-            if dias_restantes <= 30:
-                status = "CRÍTICO/INMINENTE"
-            elif dias_restantes < 10:
-                status = "VENCIDO"
-            else:
-                status = "MANEJAR SEGUN POLITICA DE LAB"
+            # critico de 0 a 10 dias
+        elif 0 <= dias_restantes <= 10:
+            status = "CRÍTICO / INMINENTE"
+            por_vencer += 1
+            # proximo mes de 11 a 30 dias     
+        elif 11 <= dias_restantes <= 30:
+            status = "ALERTA / PRÓXIMO MES"
+            por_vencer += 1
+            
+            # por politica de devolucion     
+        else:
+            status = "MANEJAR SEGÚN POLÍTICA (DEVOLUCIÓN)"
+            por_vencer += 1
             
             # Creamos el objeto de respuesta
+        lista_detalles.append(schema.AlertaMedicamento(
+            **m.__dict__, # copia todos los campos base automáticamente
+            dias_para_vencer=dias_restantes,
+            estado=status    
             
-            alerta = schema.AlertaMedicamento(
-                id=m.id,
-                nombre=m.nombre,
-                lote=m.lote,
-                laboratorio=m.laboratorio,
-                vencimiento=m.vencimiento,
-                dias_para_vencer=dias_restantes,
-                estado=status
-            )
-            lista_alertas.append(alerta)
+        ))
             
-    return lista_alertas
+    return {
+        "total_vencidos": vencidos,
+        "total_por_vencer": por_vencer,
+        "detalles": lista_detalles
+    }
 
 
 

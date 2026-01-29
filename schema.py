@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 #el filtro de los datos que se van a enviar y recibir a traves de la API
 # 1. El esquema base (comparten la creación y la lectura)
@@ -19,7 +19,13 @@ class Medicamento(MedicamentoBase):
     
 class AlertaMedicamento(Medicamento):
     dias_para_vencer: int
-    estado: str  #  "CRÍTICO" o "ADVERTENCIA"
+    estado: str 
+    
+    
+class ResumenAlertas(BaseModel):
+    total_vencidos: int
+    total_por_vencer: int
+    detalles: List[AlertaMedicamento]
 
     
 
