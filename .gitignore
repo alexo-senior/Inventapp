@@ -1,0 +1,15 @@
+# Entorno virtual
+venv/
+env/
+.env
+
+# Python cache 
+__pycache__/
+*.py[cod]
+*$py.class
+
+
+# farmacia_pro.db
+
+# VS Code
+.vscode/
