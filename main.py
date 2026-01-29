@@ -22,7 +22,7 @@ def get_db():
     finally:
         db.close()
 
-# RUTAS DE LA API
+# RUTAS 
 
 @app.get("/")
 def home():
@@ -98,6 +98,6 @@ def base_data():
     finally:
         db.close()
 
-
+# llama a la funcion y ejecuta
 base_data()
 
