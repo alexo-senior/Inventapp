@@ -28,7 +28,7 @@ uvicorn main:app --reload
 
 Acceder a la documentación:
 Abre <http://127.0.0.1:8000/docs> para probar los endpoints.
-🛣️ Endpoints Disponibles
+Endpoints Disponibles
 Método
 Ruta
 Descripción
