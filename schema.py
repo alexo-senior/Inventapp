@@ -16,6 +16,12 @@ class MedicamentoCreate(MedicamentoBase):
 # 3. Esquema para LEER (informacion que devuelve al usuario)
 class Medicamento(MedicamentoBase):
     id: int
+    
+class AlertaMedicamento(Medicamento):
+    dias_para_vencer: int
+    estado: str  #  "CRÍTICO" o "ADVERTENCIA"
+
+    
 
     class Config:
         # permite que Pydantic lea los modelos de SQLAlchemy

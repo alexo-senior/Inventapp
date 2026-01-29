@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime, timedelta
+
 
 
 import model 
@@ -34,6 +36,51 @@ def obtener_todos(db: Session = Depends(get_db)):
     return db.query(model.Medicamento).all()
 
 
+# Sistema de alertas para fechas de vencimiento
+
+@app.get("/medicamentos/alertas", response_model=List[schema.AlertaMedicamento])
+def obtener_alertas(db: Session = Depends(get_db)):
+    hoy = datetime.now().date()
+    #limite_alerta = hoy + timedelta(days=30)
+    
+    # 1. se obtienen todos los registros de la DB
+    medicamentos = db.query(model.Medicamento).all()
+    lista_alertas = [] # lista que espera las alertas
+
+    for m in medicamentos:
+        # se convierte el texto "YYYY-MM-DD" a un objeto de fecha real
+        fecha_venc = datetime.strptime(m.vencimiento, "%Y-%m-%d").date()
+        dias_restantes = (fecha_venc - hoy).days
+        
+        # se hace el filtro si vence en menos de 60 días o ya venció
+        
+        if dias_restantes <= 60:
+            
+            # Clasificamos la gravedad
+            if dias_restantes <= 30:
+                status = "CRÍTICO/INMINENTE"
+            elif dias_restantes < 10:
+                status = "VENCIDO"
+            else:
+                status = "MANEJAR SEGUN POLITICA DE LAB"
+            
+            # Creamos el objeto de respuesta
+            
+            alerta = schema.AlertaMedicamento(
+                id=m.id,
+                nombre=m.nombre,
+                lote=m.lote,
+                laboratorio=m.laboratorio,
+                vencimiento=m.vencimiento,
+                dias_para_vencer=dias_restantes,
+                estado=status
+            )
+            lista_alertas.append(alerta)
+            
+    return lista_alertas
+
+
+
 # Buscar por ID
 @app.get("/medicamentos/{id}", response_model=schema.Medicamento)
 def obtener_por_id(id: int, db: Session = Depends(get_db)):
@@ -59,6 +106,7 @@ def obtener_por_laboratorio(lab: str, db: Session = Depends(get_db)):
     return resultados
 
 
+
 def base_data():
     db = database.SessionLocal()
     try:
@@ -69,7 +117,7 @@ def base_data():
                 # Medicamentos Reales y conocidos de varios laboratorios
                 model.Medicamento(nombre="Amoxicilina 500mg", lote="L-101", laboratorio="Genfar", vencimiento="2025-11-15"),
                 model.Medicamento(nombre="Losartán 50mg", lote="L-202", laboratorio="MK", vencimiento="2026-03-10"),
-                model.Medicamento(nombre="Omeprazol 20mg", lote="L-303", laboratorio="Tecnoquímicas", vencimiento="2026-03-25"),
+                model.Medicamento(nombre="Omeprazol 20mg", lote="L-303", laboratorio="Tecnoquímicas", vencimiento="2026-01-25"),
                 model.Medicamento(nombre="Metformina 850mg", lote="L-404", laboratorio="La Santé", vencimiento="2026-05-15"),
                 model.Medicamento(nombre="Atorvastatina 20mg", lote="L-505", laboratorio="Pfizer", vencimiento="2026-05-30"),
                 model.Medicamento(nombre="Acetaminofén 500mg", lote="L-606", laboratorio="Genfar", vencimiento="2026-07-10"),
