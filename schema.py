@@ -9,11 +9,11 @@ class MedicamentoBase(BaseModel):
     laboratorio: str
     vencimiento: str
 
-# 2. Esquema para CREAR
+#  Esquema para CREAR
 class MedicamentoCreate(MedicamentoBase):
     pass
 
-# 3. Esquema para LEER (informacion que devuelve al usuario)
+# Esquema para LEER (informacion que devuelve al usuario)
 class Medicamento(MedicamentoBase):
     id: int
     
