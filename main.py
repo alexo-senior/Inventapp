@@ -16,7 +16,7 @@ model.database.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="InventApp Gestión de inventario y vencimientos de Medicamentos")
 
-# 2. Función de dependencia para obtener la sesión de la DB
+# Función de dependencia para obtener la sesión de la DB
 
 def get_db():
     db = database.SessionLocal()
@@ -43,7 +43,7 @@ def obtener_todos(db: Session = Depends(get_db)):
 @app.get("/medicamentos/alertas", response_model=schema.ResumenAlertas)
 def obtener_alertas(db: Session = Depends(get_db)):
     hoy = datetime.now().date()
-    fecha_limite = hoy + timedelta(days=60)
+    fecha_limite = hoy + timedelta(days=180)
     
     # se obtienen todos los registros de la DB
     # se hace el filtrado con las fechas menor o igual a la fecha limite
@@ -61,25 +61,26 @@ def obtener_alertas(db: Session = Depends(get_db)):
         fecha_venc = datetime.strptime(m.vencimiento, "%Y-%m-%d").date()
         dias_restantes = (fecha_venc - hoy).days
         
-        # se hace el filtro si vence en menos de 60 días o ya venció
+        # se hace el filtro 
         # Clasificamos la gravedad
         
         if dias_restantes < 0:
             status = "VENCIDO REPORTAR Y DESTRUIR"
             vencidos += 1
             
-            # critico de 0 a 10 dias
-        elif 0 <= dias_restantes <= 10:
-            status = "CRÍTICO / INMINENTE"
+            # critico de 0 a 35 dias
+        elif 0 <= dias_restantes <= 35:
+            status = "CRÍTICO / RETIRO INMINENTE"
             por_vencer += 1
-            # proximo mes de 11 a 30 dias     
-        elif 11 <= dias_restantes <= 30:
-            status = "ALERTA / PRÓXIMO MES"
+            
+            # proximo mes de 36 a 65 dias     
+        elif 11 <= dias_restantes <= 65:
+            status = "ALERTA / PRÓXIMOS 1-2 MESES"
             por_vencer += 1
             
             # por politica de devolucion     
         else:
-            status = "MANEJAR SEGÚN POLÍTICA (DEVOLUCIÓN)"
+            status = "GESTIÓN DE DEVOLUCIÓN (POLÍTICA)" 
             por_vencer += 1
             
             # Creamos el objeto de respuesta
@@ -131,30 +132,36 @@ def base_data():
         
         if db.query(model.Medicamento).count() == 0:
             productos = [
-                # Medicamentos Reales y conocidos de varios laboratorios
-                model.Medicamento(nombre="Amoxicilina 500mg", lote="L-101", laboratorio="Genfar", vencimiento="2025-11-15"),
-                model.Medicamento(nombre="Losartán 50mg", lote="L-202", laboratorio="MK", vencimiento="2026-03-10"),
-                model.Medicamento(nombre="Omeprazol 20mg", lote="L-303", laboratorio="Tecnoquímicas", vencimiento="2026-01-25"),
-                model.Medicamento(nombre="Metformina 850mg", lote="L-404", laboratorio="La Santé", vencimiento="2026-05-15"),
-                model.Medicamento(nombre="Atorvastatina 20mg", lote="L-505", laboratorio="Pfizer", vencimiento="2026-05-30"),
-                model.Medicamento(nombre="Acetaminofén 500mg", lote="L-606", laboratorio="Genfar", vencimiento="2026-07-10"),
-                model.Medicamento(nombre="Ibuprofeno 400mg", lote="L-707", laboratorio="MK", vencimiento="2026-07-28"),
-                model.Medicamento(nombre="Loratadina 10mg", lote="L-808", laboratorio="Tecnoquímicas", vencimiento="2027-01-01"),
-                model.Medicamento(nombre="Enalapril 20mg", lote="L-909", laboratorio="La Santé", vencimiento="2027-05-20"),
-                model.Medicamento(nombre="Sertralina 50mg", lote="L-010", laboratorio="Pfizer", vencimiento="2025-10-20"),
-                
-                # Medicamentos Adicionales (Laboratorios Propios/Ficticios para variedad)
-                model.Medicamento(nombre="Ciprofloxacino 500mg", lote="L-011", laboratorio="Bayer", vencimiento="2026-02-28"),
-                model.Medicamento(nombre="Naproxeno 500mg", lote="L-012", laboratorio="FarmaGlobal", vencimiento="2026-12-15"),
-                model.Medicamento(nombre="Azitromicina 500mg", lote="L-013", laboratorio="BioSalud S.A.", vencimiento="2026-04-10"),
-                model.Medicamento(nombre="Vitamina C 1g", lote="L-014", laboratorio="NutriCorp", vencimiento="2027-08-20"),
-                model.Medicamento(nombre="Dexametasona 4mg", lote="L-015", laboratorio="Hospira", vencimiento="2026-01-15"),
-                model.Medicamento(nombre="Clotrimazol Crema", lote="L-016", laboratorio="Dermacare", vencimiento="2027-03-10"),
-                model.Medicamento(nombre="Salbutamol Inhalador", lote="L-017", laboratorio="Glaxo", vencimiento="2026-09-05"),
-                model.Medicamento(nombre="Glibenclamida 5mg", lote="L-018", laboratorio="MediCloud", vencimiento="2026-11-30"),
-                model.Medicamento(nombre="Ranitidina 150mg", lote="L-019", laboratorio="Gastrolab", vencimiento="2025-12-01"),
-                model.Medicamento(nombre="Captopril 25mg", lote="L-020", laboratorio="CardioFarma", vencimiento="2027-02-14")
-            ]
+            
+            model.Medicamento(nombre="Sertralina 50mg", lote="L-010", laboratorio="Pfizer", vencimiento="2025-10-20"),
+            model.Medicamento(nombre="Amoxicilina 500mg", lote="L-101", laboratorio="Genfar", vencimiento="2025-11-15"),
+            model.Medicamento(nombre="Ranitidina 150mg", lote="L-019", laboratorio="Gastrolab", vencimiento="2025-12-01"),
+            model.Medicamento(nombre="Dexametasona 4mg", lote="L-015", laboratorio="Hospira", vencimiento="2026-01-15"),
+            model.Medicamento(nombre="Omeprazol 20mg", lote="L-303", laboratorio="Tecnoquímicas", vencimiento="2026-01-25"),
+
+            
+            model.Medicamento(nombre="Ibuprofeno 400mg", lote="L-707", laboratorio="MK", vencimiento="2026-02-15"), # 16 días
+            model.Medicamento(nombre="Ciprofloxacino 500mg", lote="L-011", laboratorio="Bayer", vencimiento="2026-02-28"), # 29 días
+            model.Medicamento(nombre="Salbutamol Inhalador", lote="L-017", laboratorio="Glaxo", vencimiento="2026-03-02"), # 31 días
+
+            
+            model.Medicamento(nombre="Losartán 50mg", lote="L-202", laboratorio="MK", vencimiento="2026-03-10"), # 39 días
+            model.Medicamento(nombre="Azitromicina 500mg", lote="L-013", laboratorio="BioSalud S.A.", vencimiento="2026-04-01"), # 61 días
+
+            
+            model.Medicamento(nombre="Metformina 850mg", lote="L-404", laboratorio="La Santé", vencimiento="2026-05-15"), # 105 días
+            model.Medicamento(nombre="Atorvastatina 20mg", lote="L-505", laboratorio="Pfizer", vencimiento="2026-05-30"), # 120 días
+            model.Medicamento(nombre="Acetaminofén 500mg", lote="L-606", laboratorio="Genfar", vencimiento="2026-07-10"), # 161 días
+            model.Medicamento(nombre="Naproxeno 500mg", lote="L-012", laboratorio="FarmaGlobal", vencimiento="2026-06-15"), # 136 días
+            model.Medicamento(nombre="Glibenclamida 5mg", lote="L-018", laboratorio="MediCloud", vencimiento="2026-07-25"), # 176 días
+
+            
+            model.Medicamento(nombre="Loratadina 10mg", lote="L-808", laboratorio="Tecnoquímicas", vencimiento="2027-03-20"),
+            model.Medicamento(nombre="Enalapril 20mg", lote="L-909", laboratorio="La Santé", vencimiento="2027-05-20"),
+            model.Medicamento(nombre="Vitamina C 1g", lote="L-014", laboratorio="NutriCorp", vencimiento="2027-05-15"),
+            model.Medicamento(nombre="Clotrimazol Crema", lote="L-016", laboratorio="Dermacare", vencimiento="2027-03-10"),
+            model.Medicamento(nombre="Captopril 25mg", lote="L-020", laboratorio="CardioFarma", vencimiento="2027-02-14")
+        ]
             db.add_all(productos)
             db.commit()
             print("Base de datos cargada exitosamente con 20 productos.")
