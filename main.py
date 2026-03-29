@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timedelta
 from sqlalchemy import asc
+import json
 
 
 
@@ -11,7 +12,7 @@ import schema
 import database
 
 # Inicialización de tablas
-model.database.Base.metadata.create_all(bind=database.engine)
+database.Base.metadata.create_all(bind=database.engine)
 
 
 app = FastAPI(title="InventApp Gestión de inventario y vencimientos de Medicamentos")
@@ -31,11 +32,33 @@ def get_db():
 def home():
     return {"mensaje": "Bienvenido a InventApp"}
 
+
+
+# listar por rango de fecha de vencimiento
+# al noincluir los argumentos en la URL sino en la funcion 
+# se interpreta como como parametro de consulta fecha inicio y fecha final
+@app.get("/medicamentos/rango-vencimiento/", response_model=List[schema.Medicamento])
+def obtener_rango_vencimiento(fecha_inicio: str, 
+                            fecha_final: str, 
+                            db: Session = Depends(get_db)
+                            ):
+    resultados =db.query(model.Medicamento).filter(
+        model.Medicamento.vencimiento.between(fecha_inicio, fecha_final)
+    ).order_by(asc(model.Medicamento.vencimiento)).all()
+    
+    if not resultados:
+        raise HTTPException(status_code=404, detail="No se encontraron medicamentos entre {fecha_inicio} y {fecha_final}")
+    return resultados
+
+    
+
 # Listar todo
 
 @app.get("/medicamentos", response_model=List[schema.Medicamento])
-def obtener_todos(db: Session = Depends(get_db)):
-    return db.query(model.Medicamento).all()
+def obtener_todos(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    # skip: cuántos registros saltar
+    # limit: cuántos registros mostrar
+    return db.query(model.Medicamento).offset(skip).limit(limit).all()
 
 
 # Sistema de alertas para fechas de vencimiento
@@ -125,51 +148,27 @@ def obtener_por_laboratorio(lab: str, db: Session = Depends(get_db)):
 
 
 
-def base_data():
+import json
+
+def carga_maestra():
     db = database.SessionLocal()
     try:
-        # Solo poblamos la base si está totalmente vacía
-        
         if db.query(model.Medicamento).count() == 0:
-            productos = [
+            # Leer el archivo externo
+            with open("medicamentos.json", "r", encoding="utf-8") as f:
+                datos_farma = json.load(f)
             
-            model.Medicamento(nombre="Sertralina 50mg", lote="L-010", laboratorio="Pfizer", vencimiento="2025-10-20"),
-            model.Medicamento(nombre="Amoxicilina 500mg", lote="L-101", laboratorio="Genfar", vencimiento="2025-11-15"),
-            model.Medicamento(nombre="Ranitidina 150mg", lote="L-019", laboratorio="Gastrolab", vencimiento="2025-12-01"),
-            model.Medicamento(nombre="Dexametasona 4mg", lote="L-015", laboratorio="Hospira", vencimiento="2026-01-15"),
-            model.Medicamento(nombre="Omeprazol 20mg", lote="L-303", laboratorio="Tecnoquímicas", vencimiento="2026-01-25"),
-
+            # Usar desempaquetado de diccionarios (**) para crear los objetos
+            productos = [model.Medicamento(**item) for item in datos_farma]
             
-            model.Medicamento(nombre="Ibuprofeno 400mg", lote="L-707", laboratorio="MK", vencimiento="2026-02-15"), # 16 días
-            model.Medicamento(nombre="Ciprofloxacino 500mg", lote="L-011", laboratorio="Bayer", vencimiento="2026-02-28"), # 29 días
-            model.Medicamento(nombre="Salbutamol Inhalador", lote="L-017", laboratorio="Glaxo", vencimiento="2026-03-02"), # 31 días
-
-            
-            model.Medicamento(nombre="Losartán 50mg", lote="L-202", laboratorio="MK", vencimiento="2026-03-10"), # 39 días
-            model.Medicamento(nombre="Azitromicina 500mg", lote="L-013", laboratorio="BioSalud S.A.", vencimiento="2026-04-01"), # 61 días
-
-            
-            model.Medicamento(nombre="Metformina 850mg", lote="L-404", laboratorio="La Santé", vencimiento="2026-05-15"), # 105 días
-            model.Medicamento(nombre="Atorvastatina 20mg", lote="L-505", laboratorio="Pfizer", vencimiento="2026-05-30"), # 120 días
-            model.Medicamento(nombre="Acetaminofén 500mg", lote="L-606", laboratorio="Genfar", vencimiento="2026-07-10"), # 161 días
-            model.Medicamento(nombre="Naproxeno 500mg", lote="L-012", laboratorio="FarmaGlobal", vencimiento="2026-06-15"), # 136 días
-            model.Medicamento(nombre="Glibenclamida 5mg", lote="L-018", laboratorio="MediCloud", vencimiento="2026-07-25"), # 176 días
-
-            
-            model.Medicamento(nombre="Loratadina 10mg", lote="L-808", laboratorio="Tecnoquímicas", vencimiento="2027-03-20"),
-            model.Medicamento(nombre="Enalapril 20mg", lote="L-909", laboratorio="La Santé", vencimiento="2027-05-20"),
-            model.Medicamento(nombre="Vitamina C 1g", lote="L-014", laboratorio="NutriCorp", vencimiento="2027-05-15"),
-            model.Medicamento(nombre="Clotrimazol Crema", lote="L-016", laboratorio="Dermacare", vencimiento="2027-03-10"),
-            model.Medicamento(nombre="Captopril 25mg", lote="L-020", laboratorio="CardioFarma", vencimiento="2027-02-14")
-        ]
             db.add_all(productos)
             db.commit()
-            print("Base de datos cargada exitosamente con 20 productos.")
+            print(f"--- CARGA EXITOSA: {len(productos)} registros desde JSON ---")
     except Exception as e:
-        print(f"Error al cargar la base de datos: {e}")
+        db.rollback()
+        print(f"Error al leer el archivo JSON: {e}")
     finally:
         db.close()
-
-# llama a la funcion y ejecuta
-base_data()
+carga_maestra()
+print("Servidor listo, base de datos cargada y verificada.")
 

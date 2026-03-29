@@ -8,6 +8,9 @@ class MedicamentoBase(BaseModel):
     lote: str
     laboratorio: str
     vencimiento: str
+    stock: int
+    precio: float
+    
 
 #  Esquema para CREAR
 class MedicamentoCreate(MedicamentoBase):
